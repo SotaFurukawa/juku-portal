@@ -152,10 +152,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Ad placeholder */}
-              <div className="mt-7 rounded-md bg-yellow-100 px-4 py-4 text-center text-sm font-semibold text-gray-800">
-                （ここに小さな広告枠：静止画像など）
-              </div>
             </div>
           </form>
         </div>
