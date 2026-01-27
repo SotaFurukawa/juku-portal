@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "aws-amplify/auth";
+import AdsenseUnit from "@/components/AdsenseUnit";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -152,6 +153,12 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              {/* Ad placeholder */}
+                {/* AdSense */}
+                <AdsenseUnit
+                slot="9505393881"
+                className="mt-7 rounded-md bg-yellow-100 px-2 py-2"
+                />
             </div>
           </form>
         </div>

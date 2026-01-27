@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import AdsenseUnit from "@/components/AdsenseUnit";
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -199,6 +200,12 @@ export default function SignupPage() {
                 <div>スマートフォン　iOS Safari / Android Chrome</div>
               </div>
             </div>
+
+                {/* AdSense */}
+            <AdsenseUnit
+                slot="9505393881"
+                className="mt-7 rounded-md bg-yellow-100 px-2 py-2"
+            />
           </div>
         </div>
       </main>
