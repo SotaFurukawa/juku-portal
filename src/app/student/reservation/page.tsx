@@ -628,10 +628,6 @@ export default function ReservationPage() {
           )}
         </div>
       )}
-
-      <div className="mt-8 rounded-md bg-yellow-100 px-4 py-4 text-center text-sm font-semibold text-gray-800">
-        （ここに小さな広告枠：静止画像など）
-      </div>
     </div>
   );
 }

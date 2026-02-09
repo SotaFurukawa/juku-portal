@@ -5,7 +5,7 @@ export const metadata = {
 
 export default function PrivacyPage() {
   const updatedAt = "2026年1月XX日"; // ★日付だけ直してOK
-  const contact = "XXXX（メールアドレス等）"; // ★ここだけ差し替え
+  const contact = "furukawa.sota.78i@gmail.com"; // ★ここだけ差し替え
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
