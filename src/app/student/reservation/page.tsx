@@ -365,7 +365,7 @@ export default function ReservationPage() {
               value={studentName}
               onChange={(e) => setStudentName(e.target.value)}
               className="h-11 w-full rounded-md px-3 ring-1 ring-gray-200 focus:outline-none focus:ring-2 focus:ring-sky-300"
-              placeholder="例：古川 太郎"
+              placeholder="例：創研 太郎"
             />
           </Field>
           <Field label="学年">
