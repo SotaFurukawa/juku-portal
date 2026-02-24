@@ -1,4 +1,4 @@
-// src/app/student/layout.tsx
+// src/app/teacher/layout.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -11,14 +11,14 @@ type ViewMode = "auto" | "mobile" | "desktop";
 
 function getDisplayName() {
   if (typeof window === "undefined") return "";
-  return localStorage.getItem("sg_username") || "生徒";
+  return localStorage.getItem("sg_username") || "講師";
 }
 function getIsMdUp() {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(min-width: 768px)").matches; // md
 }
 
-export default function StudentLayout({ children }: { children: React.ReactNode }) {
+export default function TeacherLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -27,7 +27,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   const [mode, setMode] = useState<ViewMode>("auto");
   const [isMdUp, setIsMdUp] = useState(false);
 
-  // ★追加：権限チェック（student配下にteachersが来たら弾く）
+  // ★追加：権限チェック（teacher配下にstudentsが来たら弾く）
   useEffect(() => {
     (async () => {
       const ok = await isSignedIn();
@@ -36,7 +36,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         return;
       }
       const groups = await getCurrentGroups();
-      if (groups.includes("teachers")) {
+      if (!groups.includes("teachers")) {
         router.replace("/portal");
       }
     })();
@@ -44,10 +44,9 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
   const navItems: NavItem[] = useMemo(
     () => [
-      { label: "ポータル", href: "/student/portal" },
-      { label: "予約", href: "/student/reservation" },
-      { label: "単元別演習", href: "/student/genre_exercise", disabled: true },
-      { label: "学習履歴", href: "/student/history", disabled: true },
+      { label: "ポータル", href: "/teacher/portal" },
+      { label: "印刷予約一覧", href: "/teacher/print-jobs", disabled: true },
+      { label: "通知設定", href: "/teacher/notifications" }, // Bで実装するので先に用意
     ],
     [],
   );
@@ -144,7 +143,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
                 </div>
               </button>
             )}
-            <Link href="/student/portal" className="text-base font-extrabold tracking-tight">
+            <Link href="/teacher/portal" className="text-base font-extrabold tracking-tight">
               sg-system
             </Link>
           </div>
