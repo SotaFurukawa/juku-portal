@@ -1,79 +1,101 @@
-// src/app/api/proxy/[...path]/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
-const API_BASE =
-  process.env.API_BASE_URL ||
-  process.env.API_BASE ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_BASE;
+const ALLOWED_ORIGIN =
+  process.env.ALLOWED_ORIGIN || "https://juku-efficiency-system.sg-fujidera.com";
 
-function normalizeParams(params: any): Promise<{ path?: string[] }> {
-  // Next のバージョンによって params が Promise の場合があるので吸収する
-  if (params && typeof params.then === "function") return params;
-  return Promise.resolve(params ?? {});
+function getApiBase(): string {
+  return (process.env.API_BASE_URL || process.env.API_BASE || "").trim();
 }
 
-async function handler(req: NextRequest, ctx: { params: any }) {
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+    "Access-Control-Allow-Credentials": "true",
+  };
+}
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: corsHeaders() });
+}
+
+async function handle(req: NextRequest, method: string, params: { path: string[] }) {
+  // ★ ログ：ここが増えると「どこで落ちたか」即分かる
+  console.log("[proxy] called", { method, path: params.path.join("/") });
+  console.log("[proxy] API_BASE_URL =", process.env.API_BASE_URL);
+  console.log("[proxy] API_BASE =", process.env.API_BASE);
+
   try {
-    if (!API_BASE) {
-      return NextResponse.json(
+    const base = getApiBase();
+    if (!base) {
+      console.error("[proxy] missing API base env");
+      return Response.json(
         { message: "Proxy misconfigured: API_BASE_URL (or API_BASE) is missing" },
-        { status: 500 }
+        { status: 500, headers: corsHeaders() }
       );
     }
 
-    const resolved = await normalizeParams(ctx.params);
-    const pathArr: string[] | undefined = resolved?.path;
+    // /api/proxy/<...> -> <API_BASE>/<...>
+    const upstreamUrl = `${base}/${params.path.map(encodeURIComponent).join("/")}`;
+    console.log("[proxy] upstream =", upstreamUrl);
 
-    if (!pathArr || pathArr.length === 0) {
-      return NextResponse.json(
-        { message: "Missing path (e.g. /api/proxy/exams/meta)" },
-        { status: 400 }
-      );
-    }
-
-    // パス組み立て
-    const upstreamPath = pathArr.map(encodeURIComponent).join("/");
-    const upstreamUrl = new URL(`${API_BASE.replace(/\/$/, "")}/${upstreamPath}`);
-
-    // ✅ クエリをそのまま転送
-    req.nextUrl.searchParams.forEach((v, k) => upstreamUrl.searchParams.append(k, v));
-
-    // ✅ Authorization を転送
+    // Authorization を上流へ引き継ぐ
     const auth = req.headers.get("authorization") || "";
 
-    // body（GET/HEAD以外）
-    const method = req.method.toUpperCase();
-    const hasBody = !["GET", "HEAD"].includes(method);
-    const body = hasBody ? await req.arrayBuffer() : undefined;
+    // ボディ（GET/HEADは送らない）
+    let body: string | undefined = undefined;
+    if (method !== "GET" && method !== "HEAD") {
+      body = await req.text();
+    }
 
-    const upstreamRes = await fetch(upstreamUrl.toString(), {
+    const upstreamRes = await fetch(upstreamUrl, {
       method,
       headers: {
-        ...(req.headers.get("content-type") ? { "content-type": req.headers.get("content-type")! } : {}),
         ...(auth ? { Authorization: auth } : {}),
+        ...(req.headers.get("content-type")
+          ? { "Content-Type": req.headers.get("content-type")! }
+          : { "Content-Type": "application/json" }),
       },
       body,
       cache: "no-store",
     });
 
-    const buf = await upstreamRes.arrayBuffer();
-    const outHeaders = new Headers();
+    const text = await upstreamRes.text();
+    console.log("[proxy] upstream status =", upstreamRes.status);
 
-    const ct = upstreamRes.headers.get("content-type");
-    if (ct) outHeaders.set("content-type", ct);
+    if (!upstreamRes.ok) {
+      console.error("[proxy] upstream error body =", text.slice(0, 2000));
+    }
 
-    return new NextResponse(buf, { status: upstreamRes.status, headers: outHeaders });
+    return new Response(text, {
+      status: upstreamRes.status,
+      headers: {
+        ...corsHeaders(),
+        "Content-Type": upstreamRes.headers.get("content-type") || "application/json",
+      },
+    });
   } catch (e: any) {
-    return NextResponse.json(
-      { message: "Proxy crashed", error: String(e?.message || e) },
-      { status: 500 }
+    console.error("[proxy] failed", e?.message || e, e?.stack);
+    return Response.json(
+      { message: "proxy failed", detail: String(e?.message || e) },
+      { status: 500, headers: corsHeaders() }
     );
   }
 }
 
-export const GET = handler;
-export const POST = handler;
-export const PUT = handler;
-export const PATCH = handler;
-export const DELETE = handler;
+export async function GET(req: NextRequest, ctx: { params: { path: string[] } }) {
+  return handle(req, "GET", ctx.params);
+}
+export async function POST(req: NextRequest, ctx: { params: { path: string[] } }) {
+  return handle(req, "POST", ctx.params);
+}
+export async function PUT(req: NextRequest, ctx: { params: { path: string[] } }) {
+  return handle(req, "PUT", ctx.params);
+}
+export async function PATCH(req: NextRequest, ctx: { params: { path: string[] } }) {
+  return handle(req, "PATCH", ctx.params);
+}
+export async function DELETE(req: NextRequest, ctx: { params: { path: string[] } }) {
+  return handle(req, "DELETE", ctx.params);
+}
