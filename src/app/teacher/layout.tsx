@@ -167,7 +167,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
       <div className="pt-14">
         {/* Desktop side */}
         {showDesktopUI && (
-          <aside className="fixed left-0 top-14 hidden h-[calc(100vh-56px)] w-64 border-r border-zinc-200 bg-white md:block">
+   <aside className="fixed left-0 top-14 h-[calc(100vh-56px)] w-64 border-r border-zinc-200 bg-white">
             <div className="p-4">
               <div className="text-sm font-bold text-zinc-600">メニュー</div>
               <nav className="mt-3 space-y-1">
