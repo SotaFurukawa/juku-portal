@@ -45,6 +45,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
   const navItems: NavItem[] = useMemo(
     () => [
       { label: "ポータル", href: "/teacher/portal" },
+      { label: "予約", href: "/teacher/reservation" },
       { label: "印刷予約一覧", href: "/teacher/print-jobs", disabled: true },
       { label: "通知設定", href: "/teacher/notifications" }, // Bで実装するので先に用意
     ],
