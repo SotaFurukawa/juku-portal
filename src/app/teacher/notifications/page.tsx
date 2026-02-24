@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { fetchAuthSession } from "aws-amplify/auth";
 
 function base64UrlToUint8Array(base64Url: string) {
   const padding = "=".repeat((4 - (base64Url.length % 4)) % 4);
@@ -15,9 +16,12 @@ async function registerSW() {
   return await navigator.serviceWorker.register("/push-sw.js");
 }
 
-function getIdToken() {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem("sg_id_token") || "";
+// ✅ A案：localStorage の sg_id_token をやめて、Amplify Auth から取得
+async function getIdTokenOrThrow(): Promise<string> {
+  const session = await fetchAuthSession();
+  const idToken = session.tokens?.idToken?.toString();
+  if (!idToken) throw new Error("ログイン情報（idToken）が取得できません。再ログインしてください。");
+  return idToken;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
@@ -53,8 +57,9 @@ export default function TeacherNotificationsPage() {
 
   const callApi = async (path: string, body?: any) => {
     if (!API_BASE) throw new Error("NEXT_PUBLIC_API_BASE_URL が未設定です。");
-    const idToken = getIdToken();
-    if (!idToken) throw new Error("ログイン情報（sg_id_token）が見つかりません。");
+
+    // ✅ ここが変更点：sg_id_token ではなく Amplify Auth から取る
+    const idToken = await getIdTokenOrThrow();
 
     const res = await fetch(`${API_BASE}${path}`, {
       method: "POST",
