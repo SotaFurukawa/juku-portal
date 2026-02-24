@@ -16,12 +16,18 @@ async function registerSW() {
   return await navigator.serviceWorker.register("/push-sw.js");
 }
 
-// ✅ A案：localStorage の sg_id_token をやめて、Amplify Auth から取得
-async function getIdTokenOrThrow(): Promise<string> {
+/**
+ * ✅ 401 invalid_token (audience) 対策：
+ * API Gateway / Cognito Authorizer は基本的に Access Token を期待します。
+ * localStorage の sg_id_token は使わず、Amplify Auth から accessToken を取得します。
+ */
+async function getAccessTokenOrThrow(): Promise<string> {
   const session = await fetchAuthSession();
-  const idToken = session.tokens?.idToken?.toString();
-  if (!idToken) throw new Error("ログイン情報（idToken）が取得できません。再ログインしてください。");
-  return idToken;
+  const accessToken = session.tokens?.accessToken?.toString();
+  if (!accessToken) {
+    throw new Error("ログイン情報（accessToken）が取得できません。再ログインしてください。");
+  }
+  return accessToken;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
@@ -58,17 +64,18 @@ export default function TeacherNotificationsPage() {
   const callApi = async (path: string, body?: any) => {
     if (!API_BASE) throw new Error("NEXT_PUBLIC_API_BASE_URL が未設定です。");
 
-    // ✅ ここが変更点：sg_id_token ではなく Amplify Auth から取る
-    const idToken = await getIdTokenOrThrow();
+    // ✅ ここが変更点：AccessToken をAuthorizationに使う
+    const token = await getAccessTokenOrThrow();
 
     const res = await fetch(`${API_BASE}${path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${idToken}`,
+        Authorization: `Bearer ${token}`,
       },
       body: body ? JSON.stringify(body) : "{}",
     });
+
     if (!res.ok) {
       const t = await res.text();
       throw new Error(`API Error: ${res.status} ${t}`);
