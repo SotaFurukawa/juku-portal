@@ -12,14 +12,41 @@ function base64UrlToUint8Array(base64Url: string) {
   return out;
 }
 
+function arrayBufferToBase64Url(buf: ArrayBuffer) {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  const base64 = btoa(binary);
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function normalizeSubscription(sub: PushSubscription) {
+  // PushSubscription は JSON.stringify で落ちることがあるので、必ず plain object にする
+  const j = sub.toJSON() as any;
+
+  const p256dhBuf = sub.getKey("p256dh");
+  const authBuf = sub.getKey("auth");
+
+  const keys = {
+    p256dh: j?.keys?.p256dh || (p256dhBuf ? arrayBufferToBase64Url(p256dhBuf) : ""),
+    auth: j?.keys?.auth || (authBuf ? arrayBufferToBase64Url(authBuf) : ""),
+  };
+
+  return {
+    endpoint: j?.endpoint || sub.endpoint,
+    expirationTime: j?.expirationTime ?? null,
+    keys,
+  };
+}
+
 async function registerSW() {
   return await navigator.serviceWorker.register("/push-sw.js");
 }
 
 /**
  * ✅ 401 invalid_token (audience) 対策：
- * API Gateway / Cognito Authorizer は基本的に Access Token を期待します。
- * localStorage の sg_id_token は使わず、Amplify Auth から accessToken を取得します。
+ * API Gateway / JWT Authorizer は基本 Access Token を期待するので、
+ * Amplify Auth から accessToken を取得して Authorization に使う。
  */
 async function getAccessTokenOrThrow(): Promise<string> {
   const session = await fetchAuthSession();
@@ -64,7 +91,6 @@ export default function TeacherNotificationsPage() {
   const callApi = async (path: string, body?: any) => {
     if (!API_BASE) throw new Error("NEXT_PUBLIC_API_BASE_URL が未設定です。");
 
-    // ✅ ここが変更点：AccessToken をAuthorizationに使う
     const token = await getAccessTokenOrThrow();
 
     const res = await fetch(`${API_BASE}${path}`, {
@@ -87,7 +113,7 @@ export default function TeacherNotificationsPage() {
     setBusy(true);
     setMsg(null);
     try {
-      if (!supported) throw new Error("このブラウザは通知に対応していません。");
+      if (!supported) throw new Error("このブラウザは通知に対応していません。推奨：Chrome / Edge");
       if (!vapidKey) throw new Error("NEXT_PUBLIC_VAPID_PUBLIC_KEY が未設定です。");
 
       const perm = await Notification.requestPermission();
@@ -100,7 +126,14 @@ export default function TeacherNotificationsPage() {
         applicationServerKey: base64UrlToUint8Array(vapidKey),
       });
 
-      await callApi("/notify/subscribe", sub);
+      // ✅ 必ず plain object に変換して送る（400対策）
+      const payload = {
+        role: "teacher",
+        subscription: normalizeSubscription(sub),
+      };
+
+      await callApi("/notify/subscribe", payload);
+
       setEnabled(true);
       setMsg("通知をONにしました。");
     } catch (e: any) {
@@ -118,7 +151,8 @@ export default function TeacherNotificationsPage() {
       const sub = await reg.pushManager.getSubscription();
       if (sub) await sub.unsubscribe();
 
-      await callApi("/notify/disable");
+      await callApi("/notify/disable", { role: "teacher" });
+
       setEnabled(false);
       setMsg("通知をOFFにしました。");
     } catch (e: any) {
